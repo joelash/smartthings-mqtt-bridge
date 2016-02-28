@@ -95,6 +95,8 @@ def initialize() {
     subscribe(presenceSensor, "presence", inputHandler)
     subscribe(garageDoors, "door", inputHandler)
 
+    subscribe(location, "alarmSystemStatus", alarmInputHandler)
+
     // Subscribe to events from the bridge
     subscribe(bridge, "message", bridgeHandler)
 
@@ -120,7 +122,8 @@ def updateSubscription() {
                 windowShade: getDeviceNames(windowShades),
                 presence: getDeviceNames(presenceSensors),
                 door: getDeviceNames(garageDoors),
-                notify: ["Contacts", "System"]
+                notify: ["Contacts", "System"],
+                setAlarm: ["alarm system status"]
             ]
         ]
     ])
@@ -152,6 +155,8 @@ def bridgeHandler(evt) {
               sendNotificationEvent("${json.value}")
           }
           break
+        case "setAlarm":
+            sendLocationEvent(name: "alarmSystemStatus", value: json.value)
         case "switch":
             switches.each{device->
                 if (device.displayName == json.name) {
@@ -201,15 +206,44 @@ def bridgeHandler(evt) {
 
 // Receive an event from a device
 def inputHandler(evt) {
-    def json = new JsonOutput().toJson([
-        path: '/push',
-        body: [
+    def body = [
             name: evt.displayName,
             value: evt.value,
             type: evt.name
         ]
+    sendEventBody(body)
+}
+
+def alarmInputHandler(evt) {
+    def body = [
+        name: evt.displayName,
+        value: evt.value,
+        type: evt.name
+    ]
+    switch (evt.value) {
+        case "off":
+            body["value"] = "disarmed"
+            break
+        case "stay":
+            body["value"] = "armed_home"
+            break
+        case "away":
+            body["value"] = "armed_away"
+            break
+        default:
+            log.info "need to fix up ${evt.value}"
+            break
+    }
+    sendEventBody(body)
+}
+
+def sendEventBody(body) {
+    def json = new JsonOutput().toJson([
+        path: '/push',
+        body: body
     ])
 
     log.debug "Forwarding device event to bridge: ${json}"
     bridge.deviceNotification(json)
 }
+
