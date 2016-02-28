@@ -23,6 +23,7 @@ import groovy.json.JsonOutput
 metadata {
     definition (name: "MQTT Bridge", namespace: "stj", author: "St. John Johnson and Jeremiah Wuenschel") {
         capability "Notification"
+        capability "Alarm"
     }
 
     preferences {
@@ -99,4 +100,38 @@ def deviceNotification(message) {
         body: parsed.body
     )
     hubAction
+}
+
+// Alarm capabilities
+def strobe() {
+    log.info "alarm was triggered with Strobe"
+    notifyAlarm('triggered')
+}
+
+def siren() {
+    log.info "alarm was triggered with siren"
+    notifyAlarm('triggered')
+}
+
+def both() {
+    log.info "alarm was triggered with both"
+    notifyAlarm('triggered')
+}
+
+def off() {
+    // this should really be armed_home or armed_away but i don't know what state it was in
+    log.info "alarm was triggered with Off, need to reset"
+    notifyAlarm('disarmed')
+}
+
+def notifyAlarm(value) {
+    def json = new JsonOutput().toJson([
+        path: '/push',
+        body: [
+            name: 'alarm system status',
+            value: value,
+            type: 'alarmSystemStatus'
+        ]
+    ])
+    deviceNotification(json)
 }
